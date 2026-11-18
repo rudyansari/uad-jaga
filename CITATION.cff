@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: "UAD-JAGA: Honest early-warning models for student graduation risk, quantified through a measurement-forward leakage audit"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Ansari
+    given-names: Rudy
+  - family-names: Sunardi
+  - family-names: Riadi
+    given-names: Imam
+license: MIT
+version: "1.0.0"
+date-released: "2026-11-18"
+keywords:
+  - student dropout prediction
+  - educational data mining
+  - data leakage
+  - early warning
+  - XGBoost
+  - Tree SHAP

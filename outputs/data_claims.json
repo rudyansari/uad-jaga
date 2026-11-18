@@ -1,0 +1,23 @@
+{
+  "uci": {
+    "rows": 3630,
+    "cols": 37,
+    "missing": 0,
+    "dupes": 0,
+    "rate": 0.39146005509641874,
+    "features_after_target_drop": 36,
+    "sem1_features": 30,
+    "orig_total_4424": true,
+    "enrolled_dropped": 794
+  },
+  "umbjm": {
+    "rows": 4923,
+    "cols": 15,
+    "missing": 0,
+    "dupes": 0,
+    "rate": 0.06804793824903514,
+    "features_after_drop3": 12,
+    "sem1_features": 8,
+    "at_risk_n": 335
+  }
+}

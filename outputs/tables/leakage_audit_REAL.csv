@@ -1,0 +1,5 @@
+dataset,features,model,auc,delta_vs_full
+UCI,Full-36,XGBoost,0.958,
+UCI,Sem1-only,XGBoost,0.938,0.019
+UMBJM,Full-12,XGBoost,1.0,
+UMBJM,Sem1-only,XGBoost,0.927,0.073

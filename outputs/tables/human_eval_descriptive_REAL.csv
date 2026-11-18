@@ -1,0 +1,10 @@
+aspect,method,n,mean,std,median,q1,q3
+kejelasan,SHAP,240,3.879,0.904,4.0,3.0,5.0
+kejelasan,GPT-4,240,3.95,0.775,4.0,4.0,4.0
+kejelasan,UAD-CARE,240,4.608,0.546,5.0,4.0,5.0
+kegunaan,SHAP,240,3.621,1.114,4.0,3.0,4.0
+kegunaan,GPT-4,240,3.85,0.888,4.0,3.0,4.25
+kegunaan,UAD-CARE,240,4.575,0.595,5.0,4.0,5.0
+kewajaran,SHAP,240,3.838,0.974,4.0,3.0,5.0
+kewajaran,GPT-4,240,3.983,0.858,4.0,3.0,5.0
+kewajaran,UAD-CARE,240,4.562,0.604,5.0,4.0,5.0

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+# raw datasets are NOT in the repository — see README "Data provenance"
+data/
+*.csv
+!outputs/tables/*.csv

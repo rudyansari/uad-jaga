@@ -1,0 +1,168 @@
+{
+  "UCI": {
+    "n": 3630,
+    "d": 36,
+    "ctr": 0.39146005509641874,
+    "baseline": {
+      "cm": [
+        [
+          171,
+          42
+        ],
+        [
+          12,
+          320
+        ]
+      ],
+      "precision": 0.9344262295081968,
+      "recall": 0.8028169014084507,
+      "f1": 0.8636363636363636,
+      "accuracy": 0.9009174311926605,
+      "auc": 0.9406640647095423,
+      "train_time_s": 0.23963093757629395
+    },
+    "proposed": {
+      "cm": [
+        [
+          173,
+          40
+        ],
+        [
+          14,
+          318
+        ]
+      ],
+      "precision": 0.9251336898395722,
+      "recall": 0.812206572769953,
+      "f1": 0.865,
+      "accuracy": 0.9009174311926605,
+      "auc": 0.9437609593302789,
+      "train_time_s": 0.25748109817504883
+    },
+    "top_features": [
+      [
+        "Curricular units 2nd sem (approved)",
+        0.2583511769771576
+      ],
+      [
+        "Tuition fees up to date",
+        0.06341757625341415
+      ],
+      [
+        "Curricular units 1st sem (approved)",
+        0.06105392426252365
+      ],
+      [
+        "Curricular units 1st sem (enrolled)",
+        0.05036074295639992
+      ],
+      [
+        "Curricular units 2nd sem (enrolled)",
+        0.044806577265262604
+      ],
+      [
+        "Curricular units 2nd sem (credited)",
+        0.031314361840486526
+      ],
+      [
+        "Course",
+        0.02937689796090126
+      ],
+      [
+        "Curricular units 2nd sem (evaluations)",
+        0.02334895171225071
+      ],
+      [
+        "Debtor",
+        0.021796008571982384
+      ],
+      [
+        "Curricular units 2nd sem (grade)",
+        0.021055320277810097
+      ]
+    ]
+  },
+  "UMBJM": {
+    "n": 4923,
+    "d": 12,
+    "ctr": 0.06804793824903514,
+    "baseline": {
+      "cm": [
+        [
+          50,
+          1
+        ],
+        [
+          0,
+          688
+        ]
+      ],
+      "precision": 1.0,
+      "recall": 0.9803921568627451,
+      "f1": 0.9900990099009901,
+      "accuracy": 0.9986468200270636,
+      "auc": 1.0,
+      "train_time_s": 0.11763596534729004
+    },
+    "proposed": {
+      "cm": [
+        [
+          51,
+          0
+        ],
+        [
+          0,
+          688
+        ]
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "auc": 1.0,
+      "train_time_s": 0.12610602378845215
+    },
+    "top_features": [
+      [
+        "IPK Semester 2",
+        0.675687313079834
+      ],
+      [
+        "IPS Semester 2",
+        0.17821913957595825
+      ],
+      [
+        "Jumlah sks Total Semester 1",
+        0.058528728783130646
+      ],
+      [
+        "IPS Semester 1",
+        0.028505267575383186
+      ],
+      [
+        "IPK Semester 1",
+        0.013676944188773632
+      ],
+      [
+        "Jumlah sks Semester Semester 2",
+        0.012165031395852566
+      ],
+      [
+        "Jumlah sks Total Semester 2",
+        0.01086391694843769
+      ],
+      [
+        "Jalur Masuk",
+        0.007708377670496702
+      ],
+      [
+        "Tahun_PMB",
+        0.00650813290849328
+      ],
+      [
+        "Program Studi",
+        0.00508427107706666
+      ]
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "features": [
+    "Program Studi",
+    "Jalur Masuk",
+    "Asal Sekolah",
+    "Tahun_PMB",
+    "IPS Semester 1",
+    "Jumlah sks Semester Semester 1",
+    "IPK Semester 1",
+    "Jumlah sks Total Semester 1"
+  ],
+  "n_features": 8,
+  "n_rows": 4923,
+  "at_risk_rate": 0.06804793824903514,
+  "pos_label": 0,
+  "desc": "internal semester-1 early-warning (UMBJM)",
+  "threshold_default": 0.5,
+  "top_importance": [
+    [
+      "IPK Semester 1",
+      41.341158747673035
+    ],
+    [
+      "Jumlah sks Total Semester 1",
+      13.259507715702057
+    ],
+    [
+      "IPS Semester 1",
+      9.553475677967072
+    ],
+    [
+      "Tahun_PMB",
+      9.328274428844452
+    ],
+    [
+      "Program Studi",
+      9.053251892328262
+    ],
+    [
+      "Jumlah sks Semester Semester 1",
+      8.8544562458992
+    ],
+    [
+      "Asal Sekolah",
+      4.321153089404106
+    ],
+    [
+      "Jalur Masuk",
+      4.288721829652786
+    ]
+  ]
+}

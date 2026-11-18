@@ -1,0 +1,48 @@
+{
+  "base_logit_atrisk": -0.4225653111934662,
+  "final_prob_atrisk": 0.9992876648902893,
+  "model_prob": 0.9992876052856445,
+  "index": 3042,
+  "top_drivers": [
+    [
+      "Curricular units 1st sem (approved)",
+      2.787382125854492,
+      0.0
+    ],
+    [
+      "Tuition fees up to date",
+      1.8018784523010254,
+      0.0
+    ],
+    [
+      "Debtor",
+      0.5057331323623657,
+      1.0
+    ],
+    [
+      "Curricular units 1st sem (enrolled)",
+      0.39090684056282043,
+      6.0
+    ],
+    [
+      "Course",
+      0.3277340531349182,
+      9670.0
+    ],
+    [
+      "Age at enrollment",
+      0.31829822063446045,
+      40.0
+    ],
+    [
+      "Curricular units 1st sem (grade)",
+      0.29843053221702576,
+      30.0
+    ],
+    [
+      "Scholarship holder",
+      0.21187202632427216,
+      0.0
+    ]
+  ]
+}
