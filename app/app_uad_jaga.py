@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-UAD-JAGA — Sistem pendamping deteksi dini risiko ketidaklulusan mahasiswa.
-Semua angka: model terlatih nyata + metrik terverifikasi dari Riset/reanalysis/.
-Tidak ada angka simulasi.
+UAD-JAGA — deteksi dini risiko gagal lulus mahasiswa.
+Angka & model: terverifikasi (Riset/reanalysis). Tidak ada angka simulasi.
 
-Run:  streamlit run app_uad_jaga.py
+Run: streamlit run app_uad_jaga.py
 """
 from __future__ import annotations
 
-import json
+import base64
+import os
 from datetime import datetime
 
 import matplotlib
@@ -31,65 +31,153 @@ from uad_jaga_core import (
     verified_metrics,
 )
 
-# --------------------------------------------------------------------- page
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOGO = os.path.join(HERE, "assets", "uj_logo.png")
+
+# ------------------------------------------------------------------ page + theme
 st.set_page_config(
-    page_title="UAD-JAGA — Deteksi Dini Risiko Kelulusan",
-    page_icon="🎓",
+    page_title="UAD-JAGA — Deteksi dini risiko kelulusan",
+    page_icon=LOGO if os.path.exists(LOGO) else None,
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --------------------------------------------------------------------- theme
 st.markdown(
     """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap');
+
 :root{
-  --uj-primary:#1B4F8A; --uj-primary-600:#16406F;
-  --uj-bg:#FFFFFF; --uj-surface:#F5F7FA; --uj-border:#D9E2EC;
-  --uj-text:#1F2933; --uj-muted:#52606D;
-  --uj-low:#2E7D32; --uj-med:#ED6C02; --uj-high:#C62828;
+  --ink:#122B45;  --ink-soft:#3A4C63;  --paper:#F6F3ED;  --card:#FFFFFF;
+  --border:#E6DFD1;  --accent:#C87D3B;
+  --low:#3E7A55;  --low-bg:#E6F0E8;  --med:#A9761F;  --med-bg:#F7EBD2;
+  --high:#A94335;  --high-bg:#F6E0DC;
+  --serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans:'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-html, body, [class*="css"]{color:var(--uj-text);}
-.uj-header{padding:1.1rem 1.4rem;background:var(--uj-primary);color:#fff;border-radius:10px;margin-bottom:1rem;}
-.uj-header h1{color:#fff;font-size:1.5rem;margin:0;}
-.uj-header p{color:#DCE9F7;margin:.25rem 0 0 0;font-size:.95rem;}
-.uj-card{background:var(--uj-surface);border:1px solid var(--uj-border);border-radius:10px;padding:1rem 1.2rem;}
-.uj-tier-low{color:var(--uj-low);font-weight:700;}
-.uj-tier-medium{color:var(--uj-med);font-weight:700;}
-.uj-tier-high{color:var(--uj-high);font-weight:700;}
-.uj-metric{border:1px solid var(--uj-border);border-radius:8px;padding:.75rem 0;text-align:center;background:#fff;}
-.uj-metric b{font-size:1.25rem;}
-.uj-note{font-size:.85rem;color:var(--uj-muted);}
-.uj-rec li{margin-bottom:.45rem;line-height:1.45;}
-.uj-divider{border:none;border-top:1px solid var(--uj-border);margin:1.25rem 0;}
-section[data-testid="stSidebar"]>div{background:#FBFCFE;}
+html, body { background: var(--paper); }
+html, body, [class*="css"], .stMarkdown, .stDataFrame { font-family: var(--sans); color: var(--ink); }
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"]{ background: var(--paper) !important; }
+
+/* Sembunyikan chrome bawaan framework (Deploy, kebab, header, footer) */
+[data-testid="stHeader"], #MainMenu, .stDeployButton,
+[data-testid="stToolbarActions"], [data-testid="stFooter"], footer{ display:none !important; height:0 !important; }
+
+/* Header band */
+.uj-topbar{
+  display:flex; align-items:center; gap:14px;
+  padding: 18px 22px; background: linear-gradient(135deg,#122B45 0%, #1B3A5B 100%);
+  border-radius: 14px; margin-bottom: 10px; color: #F6F3ED;
+  box-shadow: 0 6px 18px rgba(18,43,69,.14);
+}
+.uj-topbar img{ width:52px; height:52px; border-radius:12px; flex-shrink:0;}
+.uj-topbar > div{ min-width:0; flex:1 1 auto; }
+.uj-topbar > div p{ max-width:100%; overflow-wrap:anywhere;}
+.uj-topbar h1{ font-family:var(--serif); font-size:1.62rem; margin:0; color:#F6F3ED; letter-spacing:.2px;}
+.uj-topbar p{ margin:2px 0 0 0; color:#C6D2E0; font-size:.83rem; max-width:640px; line-height:1.45;}
+.uj-badge{
+  margin-left:auto; background:rgba(246,243,237,.12); border:1px solid rgba(246,243,237,.25);
+  padding:6px 12px; border-radius:999px; font-size:.72rem; color:#EDE6D9;
+  flex:0 0 auto; white-space:normal; line-height:1.3; text-align:center; min-width:110px;
+}
+
+/* Cards */
+.uj-card{
+  background: var(--card); border:1px solid var(--border); border-radius:12px;
+  padding:16px 18px; box-shadow: 0 1px 2px rgba(18,43,69,.05);
+  margin-bottom:12px;
+}
+.uj-card h4{ font-family:var(--serif); margin:0 0 8px 0; font-size:1.02rem; color: var(--ink); }
+.uj-muted{ color: var(--ink-soft); font-size:.82rem; line-height:1.5; }
+
+/* Big risk display */
+.uj-risk-num{ font-family:var(--serif); font-size:3.2rem; font-weight:700; line-height:1.1; }
+.uj-tierchip{ display:inline-block; padding:4px 14px; border-radius:999px; font-weight:600; font-size:.85rem; }
+.tier-LOW    { background:var(--low-bg);  color:var(--low);   border:1px solid #BFDCC5;}
+.tier-MEDIUM { background:var(--med-bg);  color:var(--med);   border:1px solid #EAD7AC;}
+.tier-HIGH   { background:var(--high-bg); color:var(--high);  border:1px solid #EBC2BA;}
+.uj-line-human{ font-size:1.02rem; color:var(--ink); margin-top:6px;}
+
+/* Legend chips */
+.uj-chips{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;}
+.uj-chip{ font-size:.72rem; padding:3px 10px; border-radius:999px; border:1px solid var(--border); background:#FBFAF6; color:var(--ink-soft);}
+
+/* Tabs: pill style */
+.stTabs [data-baseweb="tab-list"]{ gap:4px; background:#EFEBE1; padding:5px; border-radius:12px; }
+.stTabs [data-baseweb="tab"]{
+  border-radius:9px; background:transparent; color:var(--ink-soft);
+  font-weight:500; padding:8px 14px; height:auto; border:none;
+}
+.stTabs [data-baseweb="tab"]:hover{ background:#FFFFFFAA; }
+.stTabs [aria-selected="true"]{
+  background:#FFFFFF !important; color:var(--ink) !important;
+  box-shadow: 0 1px 3px rgba(18,43,69,.12); font-weight:600;
+}
+
+/* Buttons */
+button[kind="primary"]{
+  background: var(--ink) !important; border-radius:10px !important;
+  border:1px solid var(--ink) !important; font-weight:600 !important;
+}
+button[kind="primary"]:hover{ background:#1B3A5B !important; }
+
+/* Sidebar */
+section[data-testid="stSidebar"]{ background:#F0EBDF; border-right:1px solid var(--border); }
+section[data-testid="stSidebar"] .stMarkdown h2,
+section[data-testid="stSidebar"] .stMarkdown h3,
+section[data-testid="stSidebar"] .stMarkdown h4{ font-family:var(--serif); color:var(--ink); }
+section[data-testid="stSidebar"] label{ color: var(--ink) !important; opacity:1 !important; font-weight:500; }
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"]{ color: var(--ink) !important; opacity:1 !important; }
+
+/* Metric tables */
+.stDataFrame{ border:1px solid var(--border); border-radius:10px; }
+
+/* Small print */
+.uj-smallprint{ font-size:.74rem; color:#7A8798; line-height:1.5; }
+.uj-footer{ margin-top:36px; padding-top:14px; border-top:1px solid var(--border);
+  font-size:.76rem; color:#8A94A3; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+.uj-rec li{ margin-bottom:.55rem; line-height:1.55; }
+.uj-empty{ padding:38px 22px; text-align:center; color:var(--ink-soft); }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
+if os.path.exists(LOGO):
+    _logo_b64 = base64.b64encode(open(LOGO, "rb").read()).decode()
+    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}"/>'
+else:
+    _logo_html = ""
+
 st.markdown(
-    """<div class="uj-header"><h1>🎓 UAD-JAGA</h1>
-<p><b>J</b>ujur <b>A</b>dvisory for <b>G</b>raduation-risk <b>A</b>nalysis — deteksi dini risiko ketidaklulusan
-berbasis fitur semester&nbsp;1, dengan audit kebocoran label. Alat pendukung keputusan — bukan pengganti penilai manusia.</p></div>""",
+    f"""
+<div class="uj-topbar">
+  {_logo_html}
+  <div>
+    <h1>UAD-JAGA</h1>
+    <p>Deteksi dini risiko gagal lulus — dibaca murni dari data semester pertama,
+    tanpa melirik semester berikut. Alat bantu keputusan, bukan hakim akhir.</p>
+  </div>
+  <div class="uj-badge">model terverifikasi · v1.0</div>
+</div>
+""",
     unsafe_allow_html=True,
 )
 
-# --------------------------------------------------------------------- state
+# ------------------------------------------------------------------ state
 if "result" not in st.session_state:
     st.session_state.result = None
 if "dataset_key" not in st.session_state:
     st.session_state.dataset_key = "umbjm"
 
-# --------------------------------------------------------------------- sidebar
+# ------------------------------------------------------------------ sidebar
 with st.sidebar:
-    st.subheader("⚙️ Konfigurasi")
+    st.markdown("### Setelan")
     dataset_label = st.selectbox(
-        "Konteks dataset",
+        "Konteks data",
         options=list(DATASETS.keys()),
         format_func=lambda k: DATASETS[k]["label"],
         index=0 if st.session_state.dataset_key == "umbjm" else 1,
-        help="Model berbeda per dataset; keduanya dilatih HANYA dari fitur semester 1.",
     )
     if dataset_label != st.session_state.dataset_key:
         st.session_state.dataset_key = dataset_label
@@ -103,94 +191,105 @@ with st.sidebar:
 
     spec = tm.spec
     st.markdown(
-        f"""<div class="uj-card" style="margin-top:.75rem">
-<b>Kartu model</b><br>
-<span class="uj-note">Baris tugas: {spec['n_rows']:,} · fitur: {len(spec['features'])} ·
-at-risk: {spec['at_risk_rate']*100:.1f}%<br>Label: 0=at-risk · 1=safe</span></div>""",
+        f"""<div class="uj-card">
+<h4>Kartu model</h4>
+<span class="uj-muted">{DATASETS[dataset_label]['desc']}<br>
+{spec['n_rows']:,} mahasiswa · {len(spec['features'])} fitur · {spec['at_risk_rate']*100:.1f}% at-risk<br>
+label <b>0</b> = at-risk · label <b>1</b> = selesai</span></div>""",
         unsafe_allow_html=True,
     )
 
-    st.subheader("📌 Preset")
+    st.markdown("### Contoh nyata")
     ps = presets(dataset_label)
-    choice = st.selectbox("Isi contoh nyata", ["— pilih —"] + list(ps.keys()))
-    if st.button("Terapkan preset", width="stretch") and choice != "— pilih —":
+    choice = st.selectbox("Isi otomatis dari kasus asli", ["— pilih sendiri —"] + list(ps.keys()))
+    if st.button("Pakai contoh ini", width="stretch") and choice != "— pilih sendiri —":
         for k, v in ps[choice].items():
             st.session_state[f"in_{k}"] = v
         st.session_state.result = None
         st.rerun()
 
     b0, b1 = DATASETS[dataset_label]["bands"]
-    st.markdown("---")
-    st.subheader("🧭 Ambang operasional")
+    st.markdown("### Ambang tier")
     st.markdown(
-        f"""<div class="uj-note">
-Ambang tier: LOW&nbsp;&lt;&nbsp;{b0:.2f} &nbsp;·&nbsp; MEDIUM&nbsp;{b0:.2f}–{b1:.2f} &nbsp;·&nbsp; HIGH&nbsp;≥&nbsp;{b1:.2f}.<br>
-Ambang ini <b>operasional</b> (dipilih, bukan dituning data); titik-titik kerja yang
-diturunkan data (mis. TPR@FPR≤5%) tercatat di tab <i>Metrik Terverifikasi</i>.</div>""",
+        f"""<div class="uj-card">
+<span class="uj-muted">Tier ditetapkan operasional (bukan dituning hasil):
+LOW&nbsp;&lt;&nbsp;{b0:.2f} ≤ MEDIUM&nbsp;&lt;&nbsp;{b1:.2f} ≤ HIGH. Titik kerja yang diturunkan data
+(seperti batas alarm 5%) ada di tab <i>Angka &amp; bukti</i>.</span>
+<div class="uj-chips">
+<span class="uj-chip">LOW · hijau</span><span class="uj-chip">MEDIUM · kuning</span><span class="uj-chip">HIGH · merah</span>
+</div></div>""",
         unsafe_allow_html=True,
     )
 
-# --------------------------------------------------------------------- helpers
-def _risk_gauge_png(risk: float, tier: str) -> "str | None":
-    """Render a clean horizontal gauge; saved to /tmp and returned path."""
-    fig, ax = plt.subplots(figsize=(8, 0.9), dpi=160)
-    for a, b, c in [(0, 0.3, "#A5D6A7"), (0.3, 0.7, "#FFE0B2"), (0.7, 1.0, "#EF9A9A")]:
-        ax.barh([0], [b - a], left=a, height=0.6, color=c)
-    ax.axvline(
-        risk,
-        color={"LOW": "#2E7D32", "MEDIUM": "#ED6C02", "HIGH": "#C62828"}[tier],
-        lw=3,
+# ------------------------------------------------------------------ plot helpers
+INK = "#122B45"
+
+
+def _donut_png(risk: float, tier: str, key: str) -> str:
+    col = {"LOW": "#3E7A55", "MEDIUM": "#A9761F", "HIGH": "#A94335"}[tier]
+    fig, ax = plt.subplots(figsize=(3.0, 3.0), dpi=180)
+    fig.patch.set_facecolor("none")
+    ax.pie(
+        [risk, 1 - risk],
+        startangle=90,
+        counterclock=False,
+        colors=[col, "#EFEAE0"],
+        wedgeprops=dict(width=0.34, edgecolor="none"),
     )
-    ax.text(risk, 0.5, f"{risk:.2f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
-    for t, x in [("LOW", 0.15), ("MEDIUM", 0.5), ("HIGH", 0.85)]:
-        ax.text(x, -0.55, t, ha="center", fontsize=8, color="#52606D")
-    ax.set_xlim(0, 1)
-    ax.set_yticks([])
-    ax.axis("off")
-    path = f"/tmp/uj_gauge_{dataset_label}.png"
-    fig.savefig(path, bbox_inches="tight", pad_inches=0.05)
+    ax.set(aspect="equal", xticks=[], yticks=[], frame_on=False)
+    path = f"/tmp/uj_donut_{key}.png"
+    fig.savefig(path, transparent=True, bbox_inches="tight", pad_inches=0.01)
     plt.close(fig)
     return path
 
 
-def _shap_png(shap_out, dataset_label: str) -> str:
-    drivers = shap_out["drivers"]
-    top = drivers[:6][::-1]
-    labels = [f"{d['feature']} = {d['value']:.4g}" for d in top]
-    vals = [d["contribution"] for d in top]
+def _shap_png(shap_out, key: str) -> str:
+    drivers = shap_out["drivers"][:6][::-1]
+    labels = [f"{d['feature']} = {d['value']:.4g}" for d in drivers]
+    vals = [d["contribution"] for d in drivers]
     starts = np.cumsum([shap_out["base_logit"]] + vals[:-1]).tolist()
-    fig, ax = plt.subplots(figsize=(9, 4.2), dpi=160)
-    colors = ["#C62828" if s > 0 else "#2E7D32" for s in vals]
-    ax.barh(labels, vals, left=starts, color=colors, alpha=0.88, height=0.62)
-    ax.axvline(0, color="#52606D", ls=":", lw=1)
+    fig, ax = plt.subplots(figsize=(9.2, 4.0), dpi=180)
+    fig.patch.set_facecolor("none")
+    colors = ["#A94335" if s > 0 else "#3E7A55" for s in vals]
+    ax.barh(labels, vals, left=starts, color=colors, alpha=0.92, height=0.6)
+    ax.axvline(0, color="#9AA5B1", ls=":", lw=1)
     ax.set_title(
-        f"Dorongan risiko (Tree SHAP exact) — base {shap_out['base_logit']:+.2f} → "
-        f"margin {shap_out['base_logit']+sum(vals):+.2f} → p={shap_out['final_prob']:.3f}",
-        fontsize=11,
-        fontweight="bold",
+        f"base {shap_out['base_logit']:+.2f} → margin {shap_out['base_logit']+sum(vals):+.2f} → p = {shap_out['final_prob']:.3f}",
+        fontsize=11, fontweight="bold", color=INK, loc="left", pad=12,
     )
-    ax.set_xlabel("Kontribusi ke log-odds at-risk (positif = menaikkan risiko)")
-    ax.grid(axis="x", alpha=0.3)
-    ax.tick_params(axis="y", labelsize=8)
+    ax.set_xlabel("tarikan ke arah at-risk (log-odds)", fontsize=9)
+    ax.grid(axis="x", alpha=0.25)
+    ax.spines[["top", "right", "left"]].set_visible(False)
+    ax.tick_params(axis="y", labelsize=8.5)
+    ax.tick_params(axis="x", labelsize=8)
     fig.tight_layout()
-    path = f"/tmp/uj_shap_{dataset_label}.png"
-    fig.savefig(path, bbox_inches="tight")
+    path = f"/tmp/uj_shap_{key}.png"
+    fig.savefig(path, transparent=True, bbox_inches="tight")
     plt.close(fig)
     return path
 
 
-# --------------------------------------------------------------------- tabs
+def _tier_sentence(tier: str) -> str:
+    return {
+        "HIGH": "Risiko tinggi — jangan ditunda. Mulai dari penyebab akademik terbesar, lalu cek beban SKS dan dukungan non-akademik.",
+        "MEDIUM": "Belum aman tapi masih bisa dijaga — pasang pantauan rutin mingguan.",
+        "LOW": "Kondisi terkendali — pantauan ringan tiap bulan cukup.",
+    }[tier]
+
+
+# ------------------------------------------------------------------ tabs
 tab_in, tab_view, tab_shap, tab_rec, tab_metrics, tab_about = st.tabs(
-    ["📝 Input & Prediksi", "📊 Hasil", "🧠 Penjelasan", "💡 Rekomendasi", "✅ Metrik Terverifikasi", "ℹ️ Tentang"]
+    ["Isi data", "Skor saya", "Mengapa begini", "Langkah yang membantu", "Angka & bukti", "Tentang"]
 )
 
 with tab_in:
-    st.markdown("#### Data mahasiswa (fitur semester 1 saja)")
-    st.caption(
-        "Model sengaja TIDAK membaca fitur semester lanjut (mis. IPS sem-2) — "
-        "termasuknya fitur itu menaikkan AUC ke ≈1.000 pada data internal kami lewat kebocoran label "
-        "(lihat tab Metrik Terverifikasi)."
+    st.markdown("## Isi data mahasiswa")
+    st.markdown(
+        """<span class="uj-muted">Cukup data semester pertama. Model <b>sengaja</b> tidak membaca
+IPS semester dua — di kolom itulah angka sempurna AUC 1,000 sebenarnya mencuri pandang.</span>""",
+        unsafe_allow_html=True,
     )
+    st.write("")
     fields = input_specs(dataset_label)
     cols = st.columns(3 if len(fields) <= 12 else 4)
     row = {}
@@ -219,123 +318,133 @@ with tab_in:
                 )
         row[fdef["name"]] = float(v)
 
-    c1, c2 = st.columns([1, 3])
-    run = c1.button("🎯 Analisis risiko", type="primary", width="stretch")
+    run = st.button("Hitung risiko", type="primary")
     if run:
         res = predict(tm, row)
         try:
             sh = exact_shap_contributions(tm, row)
             rec = recommendations(tm, row, sh["drivers"])
-        except Exception as e:  # pragma: no cover - defensive UI state
-            sh, rec = None, [f"(SHAP tidak tersedia: {e})"]
+        except Exception as e:
+            sh, rec = None, [f"(penjelasan tidak tersedia: {e})"]
         st.session_state.result = {
             "input": row,
             "predict": res,
             "shap": sh,
             "recs": rec,
             "dataset": dataset_label,
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "time": datetime.now().strftime("%d %b %Y, %H:%M"),
         }
 
 with tab_view:
     if st.session_state.result is None:
-        st.info("Belum ada hasil — isi tab **Input & Prediksi** lalu klik **Analisis risiko**.")
+        st.markdown(
+            """<div class="uj-card uj-empty">Belum ada hitungan.<br>
+<span class="uj-muted">Isi dulu di tab «Isi data» — atau pakai contoh nyata di sidebar — lalu tekan «Hitung risiko».</span></div>""",
+            unsafe_allow_html=True,
+        )
     else:
         R = st.session_state.result
         risk, tier = R["predict"]["risk"], R["predict"]["tier"]
-        m1, m2, m3 = st.columns(3)
-        with m1:
+        c1, c2, c3 = st.columns([1.2, 1.4, 2.2])
+        with c1:
+            st.image(_donut_png(risk, tier, R["dataset"]), width=210)
+        with c2:
+            colr = "#3E7A55" if tier == "LOW" else ("#A9761F" if tier == "MEDIUM" else "#A94335")
             st.markdown(
-                f'<div class="uj-metric"><span class="uj-note">Risiko at-risk</span><br>'
-                f'<b class="uj-tier-{tier.lower()}">{risk:.1%}</b></div>',
+                f"""<div class="uj-risk-num" style="color:{colr}">{risk*100:.1f}%</div>
+<span class="uj-tierchip tier-{tier}">{tier}</span>""",
                 unsafe_allow_html=True,
             )
-        with m2:
+        with c3:
             st.markdown(
-                f'<div class="uj-metric"><span class="uj-note">Kategori</span><br>'
-                f'<b class="uj-tier-{tier.lower()}">{tier}</b></div>',
+                f"""<div class="uj-card" style="margin-top:26px">
+<h4>Apa artinya</h4>
+<div class="uj-line-human">{_tier_sentence(tier)}</div>
+<div class="uj-smallprint" style="margin-top:8px">peluang at-risk {risk:.2%} · peluang selesai {R['predict']['p_safe']:.2%} ·
+dihitung {R['time']} dengan {R['predict']['features_used']} fitur semester 1</div>
+</div>""",
                 unsafe_allow_html=True,
             )
-        with m3:
-            st.markdown(
-                f'<div class="uj-metric"><span class="uj-note">Probabilitas safe</span><br>'
-                f'<b>{R["predict"]["p_safe"]:.1%}</b></div>',
-                unsafe_allow_html=True,
-            )
-        st.image(_risk_gauge_png(risk, tier), width="stretch")
-        st.caption(
-            f"Model: {DATASETS[R['dataset']]['label']} · {R['predict']['features_used']} fitur · "
-            f"dianalisis {R['time']}"
-        )
 
-        st.markdown("<hr class='uj-divider'>", unsafe_allow_html=True)
-        st.markdown("**Ekspor hasil penilaian**")
+        st.write("")
         out = {
-            "timestamp": R["time"],
+            "waktu": R["time"],
             "dataset": R["dataset"],
-            "risk": risk,
+            "risiko": round(risk, 4),
             "tier": tier,
             **{f"x_{k}": v for k, v in R["input"].items()},
         }
-        rec_csv = pd.DataFrame([out]).to_csv(index=False).encode("utf-8")
         st.download_button(
-            "⬇️ Unduh CSV",
-            rec_csv,
-            file_name=f"uad_jaga_assessment_{R['time'][:10]}_{R['dataset']}.csv",
+            "Simpan hasil (CSV)",
+            pd.DataFrame([out]).to_csv(index=False).encode("utf-8"),
+            file_name=f"uad-jaga-{R['dataset']}-{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
         )
 
 with tab_shap:
     if st.session_state.result is None or st.session_state.result["shap"] is None:
-        st.info("Belum ada penjelasan — jalankan analisis di tab Input terlebih dahulu.")
+        st.markdown(
+            """<div class="uj-card uj-empty">Penjelasan belum dibuat.<br>
+<span class="uj-muted">Jalankan perhitungan dulu — setiap kontribusi direkonstruksi balik ke probabilitas model; kalau tidak cocok, tidak ditampilkan.</span></div>""",
+            unsafe_allow_html=True,
+        )
     else:
         R = st.session_state.result
         sh = R["shap"]
-        st.image(_shap_png(sh, R["dataset"]), width="content")
+        st.markdown("## Mengapa skor-nya begini")
+        st.image(_shap_png(sh, R["dataset"]))
         df_drivers = pd.DataFrame(sh["drivers"])
         df_drivers["arah"] = df_drivers["contribution"].map(
-            lambda s: "⬆ menaikkan risiko" if s > 0 else "⬇ menurunkan risiko"
+            lambda s: "menaikkan risiko" if s > 0 else "menurunkan risiko"
         )
         st.dataframe(
             df_drivers[["feature", "value", "contribution", "arah"]].rename(
-                columns={"feature": "Fitur", "value": "Nilai", "contribution": "Kontribusi", "arah": "Arah"}
+                columns={"feature": "fitur", "value": "nilai", "contribution": "kontribusi"}
             ),
             width="stretch",
             hide_index=True,
         )
         st.caption(
-            f"Verifikasi rekonstruksi: p(model)={sh['final_prob']:.3f} ≈ "
-            f"p(SHAP)={sh['reconstructed_prob']:.3f} — Tree SHAP exact."
+            f"cek rekonstruksi: p(model) {sh['final_prob']:.3f} ≈ p(SHAP) {sh['reconstructed_prob']:.3f} — Tree SHAP exact."
         )
 
 with tab_rec:
     if st.session_state.result is None:
-        st.info("Belum ada rekomendasi — jalankan analisis di tab Input terlebih dahulu.")
-    else:
-        R = st.session_state.result
         st.markdown(
-            "Rekomendasi hanya dipicu oleh driver SHAP dengan kontribusi **positif** — "
-            "tidak ada klaim otomatis yang tidak bersumber dari penjelasan terukur."
+            """<div class="uj-card uj-empty">Belum ada saran.<br>
+<span class="uj-muted">Saran hanya muncul dari penyebab risiko yang terukur di profil ini — bukan himbauan umum.</span></div>""",
+            unsafe_allow_html=True,
         )
-        recs = R["recs"]
+    else:
+        st.markdown("## Langkah yang kemungkinan membantu")
+        st.markdown(
+            """<span class="uj-muted">Saran ini khusus dari profil yang diisi — hanya penyebab yang
+benar-benar menarik risiko yang memicunya. Ukur ulang setelah nilai akhir semester 1 keluar.</span>""",
+            unsafe_allow_html=True,
+        )
+        recs = st.session_state.result["recs"]
         st.markdown("<ul class='uj-rec'>" + "".join(f"<li>{x}</li>" for x in recs) + "</ul>", unsafe_allow_html=True)
         st.caption(
-            "Catatan: bandingkan saran dengan penilaian profesional Anda. Sistem mengandung bias historis "
-            "sepanjang fitur semester 1 dan target biner; gunakan sebagai pendukung, bukan penilai tunggal."
+            "Gabungkan dengan pertimbangan Anda — model tidak melihat motivasi, kondisi keluarga, atau kesehatan."
         )
 
 with tab_metrics:
-    st.markdown("#### Metrik terverifikasi (dari perangkat ulang CV 5-fold, pooled out-of-fold, seed 42)")
+    st.markdown("## Angka & bukti")
+    st.markdown(
+        """<span class="uj-muted">Angka ini <b>persis</b> sama dengan isi naskah paper —
+dibaca langsung dari file artefaknya, bukan ketik tangan, bukan perkiraan.</span>""",
+        unsafe_allow_html=True,
+    )
+    st.write("")
     vm = verified_metrics()
     if "leakage_audit_REAL.csv" in vm["files"]:
-        st.markdown("**· Audit kebocoran (measurement-forward leakage)**")
+        st.markdown("#### Audit bocor data (measurement-forward leakage)")
         st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_REAL.csv"]), width="stretch", hide_index=True)
         st.caption(
-            "EARLY-WARNING: model yang hanya diberi fitur semester 1. FULL: model dengan fitur semester lanjut "
-            "(ditambahkan di sini hanya untuk audit — bukan dipakai untuk prediksi)."
+            "FULL = semua fitur (termasuk semester 2, hanya untuk audit). EARLY = fitur semester 1 saja — yang dipakai aplikasi ini."
         )
     if "cv_benchmark_REAL.json" in vm["files"]:
-        st.markdown("**· Benchmark model (pooled OOF)**")
+        st.markdown("#### Benchmark model (5-fold CV, pooled out-of-fold)")
         rows = []
         b = vm["files"]["cv_benchmark_REAL.json"]
         for dn in b:
@@ -348,45 +457,45 @@ with tab_metrics:
                     rows.append({
                         "dataset": dn,
                         "model": mname,
-                        "AUC(pooled)": round(p["auc"], 3),
-                        "AUC fold mean±std (ddof=1)": f"{fs['auc'][0]:.3f}±{fs['auc'][1]:.3f}",
+                        "AUC": round(p["auc"], 3),
+                        "fold AUC (mean±std)": f"{fs['auc'][0]:.3f}±{fs['auc'][1]:.3f}",
                         "P": round(p["precision"], 3),
                         "R": round(p["recall"], 3),
                         "F1": round(p["f1"], 3),
                         "Acc": round(p["accuracy"], 3),
-                        "P@100": round(mv["precision_at_100"], 2) if mv["precision_at_100"] is not None else "n/a",
+                        "P@100": round(mv["precision_at_100"], 2),
                     })
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     if "calibration_REAL.json" in vm["files"]:
-        st.markdown("**· Kalibrasi (holdout 15%)**")
+        st.markdown("#### Kalibrasi (holdout 15%)")
         st.dataframe(pd.DataFrame(vm["files"]["calibration_REAL.json"]).T.round(4), width="stretch")
     if "human_eval_descriptive_REAL.csv" in vm["files"]:
-        st.markdown("**· Evaluasi manusia (n=48 responden, 2.160 rating)**")
+        st.markdown("#### Penilaian manusia (48 penasihat, 2.160 penilaian)")
         st.dataframe(pd.DataFrame(vm["files"]["human_eval_descriptive_REAL.csv"]), width="stretch", hide_index=True)
         st.dataframe(pd.DataFrame(vm["files"]["human_eval_effects_REAL.csv"]), width="stretch", hide_index=True)
 
 with tab_about:
+    st.markdown("## Tentang UAD-JAGA")
     st.markdown(
-        """#### Tentang UAD-JAGA
-**UAD-JAGA** (*JuJur Advisory for Graduation-risk Analysis*; *jaga*, bahasa Indonesia: *mengawasi*) adalah
-alat pendukung keputusan untuk penasihat akademik. Prinsipnya tercermin di aplikasi ini:
+        """**J**ujur **A**dvisory for **G**raduation-risk **A**nalysis — nama *jaga* dipinjam dari
+bahasa Indonesia: *mengawasi*.
 
-- **Fitur penuh kejujuran** — hanya fitur semester 1 yang dipakai; fitur semester lanjut sengaja dibuang setelah
-  audit menunjukkan adanya measurement-forward leakage.
-- **Angka terverifikasi** — setiap metrik pada tab *Metrik Terverifikasi* berasal dari proses ulang pada data asli
-  (5-fold stratified CV); tidak ada angka simulasi atau hardcoded.
-- **Penjelasan yang dapat direproduksi** — kontribusi harus dapat direkonstruksi ulang ke probabilitas model
-  (Tree SHAP exact); jika tidak cocok, aplikasi menolak memberi penjelasan.
-- **Keterbatasan dinyatakan terbuka** — model tidak menangkap faktor tidak tercatat (motivasi, kesehatan mental,
-  kondisi keluarga), dan target kolektifnya adalah data historis.
+Aplikasi ini adalah sisi manusia dari riset kami. Prinsip yang kami pegang teguh:
 
-#### Standar operasional dalam UI
-- Skor risiko = probabilitas model untuk kelas *at-risk* (label 0).
-- Ambang tier operasional (bukan dituning): LOW < 0.30 ≤ MEDIUM < 0.70 ≤ HIGH.
-- Rekomendasi memicu hanya dari driver SHAP positif — tidak ada klaim otomatis yang tidak bersumber.
+- Hanya fitur semester pertama — bukan kebetulan, tapi kejujuran metodologis.
+- Setiap angka yang tampil bisa direproduksi dari berkas di repositori terbuka (github.com/rudyansari/uad-jaga).
+- Setiap penjelasan harus rekonsili dengan probabilitas model; kalau tidak cocok, tidak ditampilkan.
+- Keterbatasan ditulis terbuka: model tidak mengenal motivasi, kondisi ekonomi, maupun kesehatan.
 
-**Tim**: Rudy Ansari, Sunardi, Imam Riadi — Universitas Ahmad Dahlan & Universitas Muhammadiyah Banjarmasin."""
+**Tim**: Rudy Ansari, Sunardi, Imam Riadi — Universitas Ahmad Dahlan & Universitas Muhammadiyah Banjarmasin.
+
+Aplikasi ini adalah pendukung keputusan, bukan putusan.""",
     )
 
-st.markdown("<hr class='uj-divider'>", unsafe_allow_html=True)
-st.caption("UAD-JAGA · deteksi dini risiko kelulusan · hanya untuk tujuan pendukung keputusan · " + datetime.now().strftime("%Y"))
+st.markdown(
+    """<div class="uj-footer">
+<span>UAD-JAGA · deteksi dini risiko kelulusan · angka terverifikasi, tanpa fabrikasi</span>
+<span>Rudy Ansari · Sunardi · Imam Riadi · 2026</span>
+</div>""",
+    unsafe_allow_html=True,
+)
