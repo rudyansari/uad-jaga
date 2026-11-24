@@ -1,0 +1,92 @@
+[
+ {
+  "features": "Sem1-only",
+  "test": 2021,
+  "auc": 0.699,
+  "f1": 0.451,
+  "precision": 0.418,
+  "recall": 0.488,
+  "accuracy": 0.804,
+  "n_test": 511,
+  "n_risk_test": 84
+ },
+ {
+  "features": "Year1-full",
+  "test": 2021,
+  "auc": 0.833,
+  "f1": 0.56,
+  "precision": 0.472,
+  "recall": 0.69,
+  "accuracy": 0.822,
+  "n_test": 511,
+  "n_risk_test": 84
+ },
+ {
+  "features": "Sem1-only",
+  "test": 2022,
+  "auc": 0.714,
+  "f1": 0.39,
+  "precision": 0.348,
+  "recall": 0.444,
+  "accuracy": 0.855,
+  "n_test": 518,
+  "n_risk_test": 54
+ },
+ {
+  "features": "Year1-full",
+  "test": 2022,
+  "auc": 0.902,
+  "f1": 0.617,
+  "precision": 0.519,
+  "recall": 0.759,
+  "accuracy": 0.902,
+  "n_test": 518,
+  "n_risk_test": 54
+ },
+ {
+  "features": "Sem1-only",
+  "test": 2023,
+  "auc": 0.471,
+  "f1": 0.654,
+  "precision": 0.944,
+  "recall": 0.5,
+  "accuracy": 0.486,
+  "n_test": 35,
+  "n_risk_test": 34
+ },
+ {
+  "features": "Year1-full",
+  "test": 2023,
+  "auc": 0.882,
+  "f1": 0.938,
+  "precision": 1.0,
+  "recall": 0.882,
+  "accuracy": 0.886,
+  "n_test": 35,
+  "n_risk_test": 34
+ },
+ {
+  "features": "Sem1-only",
+  "test": 2024,
+  "auc": null,
+  "f1": null,
+  "precision": null,
+  "recall": null,
+  "accuracy": null,
+  "n_test": 6,
+  "n_risk_test": 6,
+  "note": "insufficient"
+ },
+ {
+  "features": "Year1-full",
+  "test": 2024,
+  "auc": null,
+  "f1": null,
+  "precision": null,
+  "recall": null,
+  "accuracy": null,
+  "n_test": 6,
+  "n_risk_test": 6,
+  "note": "insufficient"
+ }
+]

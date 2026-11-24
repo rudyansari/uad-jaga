@@ -1,0 +1,10 @@
+{
+ "design": "cohort holdout 2022 (train <= 2021), year-1 features, isotonic fit on internal 85/15 split",
+ "brier_raw": 0.07977113624361604,
+ "brier_iso": 0.0763641647260484,
+ "auc_raw": 0.90205938697318,
+ "auc_iso": 0.888809067688378,
+ "n_test": 518,
+ "n_risk": 54,
+ "n_train": 1369
+}

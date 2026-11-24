@@ -1,0 +1,13 @@
+{
+  "features": [
+    "kode_prodi",
+    "ips1",
+    "n_mk_s1",
+    "n_CDE_s1",
+    "angka_mean_s1"
+  ],
+  "n_rows": 1928,
+  "at_risk_rate": 0.22147302904564314,
+  "pos_label": 1,
+  "dataset": "umbjm_v3_sem1"
+}

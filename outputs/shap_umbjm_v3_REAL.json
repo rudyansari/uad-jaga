@@ -1,0 +1,60 @@
+{
+ "case": {
+  "row_index": 1721,
+  "risk": 0.9993916749954224,
+  "base_logit": -1.2620388269424438,
+  "drivers": [
+   {
+    "feature": "n_mk_s12",
+    "contribution": 3.9324607849121094,
+    "value": 9.0
+   },
+   {
+    "feature": "ips12",
+    "contribution": 3.5237443447113037,
+    "value": 0.0
+   },
+   {
+    "feature": "n_CDE_s12",
+    "contribution": 0.7159111499786377,
+    "value": 9.0
+   },
+   {
+    "feature": "kode_prodi",
+    "contribution": 0.4980223774909973,
+    "value": 23201.0
+   },
+   {
+    "feature": "angka_mean_s1",
+    "contribution": -0.20006264746189117,
+    "value": 4.355555555555556
+   },
+   {
+    "feature": "n_CDE_s1",
+    "contribution": 0.13412365317344666,
+    "value": 9.0
+   },
+   {
+    "feature": "ips1",
+    "contribution": 0.03485505282878876,
+    "value": 0.0
+   },
+   {
+    "feature": "n_mk_s1",
+    "contribution": 0.027242258191108704,
+    "value": 9.0
+   }
+  ],
+  "features": {
+   "kode_prodi": 23201.0,
+   "ips1": 0.0,
+   "n_mk_s1": 9.0,
+   "n_CDE_s1": 9.0,
+   "angka_mean_s1": 4.355555555555556,
+   "ips12": 0.0,
+   "n_mk_s12": 9.0,
+   "n_CDE_s12": 9.0
+  }
+ },
+ "model_prob": 0.9993916749954224
+}

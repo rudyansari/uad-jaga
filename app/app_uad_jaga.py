@@ -158,7 +158,7 @@ st.markdown(
     <p>Deteksi dini risiko gagal lulus — dibaca murni dari data semester pertama,
     tanpa melirik semester berikut. Alat bantu keputusan, bukan hakim akhir.</p>
   </div>
-  <div class="uj-badge">model terverifikasi · v1.1</div>
+  <div class="uj-badge">model terverifikasi · v1.2</div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -168,7 +168,7 @@ st.markdown(
 if "result" not in st.session_state:
     st.session_state.result = None
 if "dataset_key" not in st.session_state:
-    st.session_state.dataset_key = "umbjm_v2_year1"
+    st.session_state.dataset_key = "umbjm_v3_year1"
 
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
@@ -440,14 +440,14 @@ dibaca langsung dari file artefaknya, bukan ketik tangan, bukan perkiraan.</span
     )
     st.write("")
     vm = verified_metrics()
-    if "leakage_audit_v2_REAL.csv" in vm["files"]:
-        st.markdown("#### Audit fidelity (UMBJM 2026, XGBoost 5-fold pooled OOF)")
-        st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_v2_REAL.csv"]), width="stretch", hide_index=True)
-    if "cv_benchmark_v2_REAL.json" in vm["files"]:
-        st.markdown("#### Benchmark model (UMBJM 2026, positive class = tidak-lulus-tepat-waktu)")
+    if "leakage_audit_v3_REAL.csv" in vm["files"]:
+        st.markdown("#### Audit fidelity (UMBJM 2026 Reguler–S1, XGBoost 5-fold pooled OOF)")
+        st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_v3_REAL.csv"]), width="stretch", hide_index=True)
+    if "cv_benchmark_v3_REAL.json" in vm["files"]:
+        st.markdown("#### Benchmark model (UMBJM 2026 Reguler–S1, positive class = tidak-lulus-tepat-waktu)")
         rows = []
-        b2 = vm["files"]["cv_benchmark_v2_REAL.json"]
-        for gname in b2:
+        b2 = vm["files"]["cv_benchmark_v3_REAL.json"]
+        for gname in ["Sem1-only", "Year1-full"]:
             for mname, mv in b2[gname]["models"].items():
                 p = mv["pooled"]; fs = mv["fold_mean_std"]
                 rows.append({
@@ -459,13 +459,17 @@ dibaca langsung dari file artefaknya, bukan ketik tangan, bukan perkiraan.</span
                     "P@100": round(mv["precision_at_100"], 2),
                 })
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
-    if "temporal_validation_v2_REAL.csv" in vm["files"]:
+    if "temporal_validation_v3_REAL.json" in vm["files"]:
         st.markdown("#### Validasi temporal antar-angkatan (train ≤ k−1 → test k)")
-        st.dataframe(pd.DataFrame(vm["files"]["temporal_validation_v2_REAL.csv"]), width="stretch", hide_index=True)
-        st.caption("Kohort 2024 dibatasi kematangan kelas (rate 65%) — angka itu struktur label, bukan kegagalan model.")
-    if "calibration_v2_REAL.json" in vm["files"]:
-        st.markdown("#### Kalibrasi (cohort holdout 2023, fitur tahun-1)")
-        st.dataframe(pd.DataFrame(vm["files"]["calibration_v2_REAL.json"], index=["nilai"]).T.round(4), width="stretch")
+        tdf = pd.DataFrame(vm["files"]["temporal_validation_v3_REAL.json"])
+        st.dataframe(tdf, width="stretch", hide_index=True)
+        st.caption("Kohort 2023–2024 belum matang (on-time horizon belum lewat) — dilaporkan tapi dikecualikan dari headline.")
+    if "calibration_v3_REAL.json" in vm["files"]:
+        st.markdown("#### Kalibrasi (cohort holdout 2022, fitur tahun-1)")
+        cv3 = vm["files"]["calibration_v3_REAL.json"]
+        num = {k: [v] for k, v in cv3.items() if isinstance(v, (int, float))}
+        st.dataframe(pd.DataFrame(num).T.rename(columns={0: "nilai"}).round(4), width="stretch")
+        st.caption(cv3.get("design", ""))
     if "leakage_audit_REAL.csv" in vm["files"]:
         st.markdown("#### Audit benchmark publik UCI (semester-2 content vs semester-1-only)")
         st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_REAL.csv"]), width="stretch", hide_index=True)

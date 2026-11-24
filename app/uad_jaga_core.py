@@ -45,13 +45,13 @@ def _load_json(path: str) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------- datasets
 DATASETS = {
-    "umbjm_v2_sem1": {
-        "label": "UMBJM (2026) — semester pertama saja",
+    "umbjm_v3_sem1": {
+        "label": "UMBJM (2026) — S1 Reguler, semester pertama saja",
         "desc": "Risiko tidak-lulus-tepat-waktu (DO akad./lambat). Akurasi lebih sopan, sinyal lebih jujur.",
         "bands": (0.30, 0.70),
     },
-    "umbjm_v2_year1": {
-        "label": "UMBJM (2026) — tahun pertama (2 semester)",
+    "umbjm_v3_year1": {
+        "label": "UMBJM (2026) — S1 Reguler, tahun pertama (2 semester)",
         "desc": "Risiko tidak-lulus-tepat-waktu (DO akad./lambat). Lebih kuat, masih termasuk early.",
         "bands": (0.30, 0.70),
     },
@@ -92,8 +92,8 @@ def verified_metrics() -> Dict[str, Any]:
     """Aggregated verified metrics shown verbatim in the UI's 'Angka & bukti' tab."""
     out = {"files": {}}
     for fname in [
-        "leakage_audit_v2_REAL.csv",
-        "temporal_validation_v2_REAL.csv",
+        "leakage_audit_v3_REAL.csv",
+        "temporal_validation_v3_REAL.csv",
         "leakage_audit_REAL.csv",
         "metrics_summary_REAL.csv",
         "human_eval_descriptive_REAL.csv",
@@ -102,7 +102,7 @@ def verified_metrics() -> Dict[str, Any]:
         p = _rp(fname)
         if os.path.exists(p):
             out["files"][fname] = pd.read_csv(p).to_dict("records")
-    for jname in ["cv_benchmark_v2_REAL.json", "calibration_v2_REAL.json", "cv_benchmark_REAL.json", "calibration_REAL.json"]:
+    for jname in ["cv_benchmark_v3_REAL.json", "calibration_v3_REAL.json", "cv_benchmark_REAL.json", "calibration_REAL.json"]:
         p = _rp(jname)
         if os.path.exists(p):
             out["files"][jname] = _load_json(p)
@@ -183,7 +183,7 @@ def recommendations(tm: TrainedModel, row: Dict[str, float], drivers: List[Dict[
     """
     pos = {d["feature"]: d for d in drivers if d["contribution"] > 0}
     recs: List[str] = []
-    if tm.key.startswith("umbjm_v2"):
+    if tm.key.startswith("umbjm_v3"):
         if not pos:
             return ["Profil tidak menunjukkan pendorong risiko dominan: pantau rutin setiap selesai nilai semester 1 keluar."]
         if "ips1" in pos:
@@ -236,17 +236,16 @@ def recommendations(tm: TrainedModel, row: Dict[str, float], drivers: List[Dict[
 # ---------------------------------------------------------------- input schema
 def input_specs(key: str) -> List[Dict[str, Any]]:
     """UI field schema per dataset (labels in Indonesian, ranges validated)."""
-    if key == "umbjm_v2_sem1":
+    if key == "umbjm_v3_sem1":
         return [
-            {"name": "kode_prodi", "label": "Program studi (kode; mis. 48401)", "min": 10000, "max": 99999, "default": 48401, "step": 1, "fmt": "%d"},
-            {"name": "jenis_daftar_code", "label": "Jalur daftar (0=Reguler, 1=RPL, 2=Pindahan)", "min": 0, "max": 2, "default": 0, "step": 1, "fmt": "%d"},
+            {"name": "kode_prodi", "label": "Program studi S1 (kode; mis. 61206)", "min": 10000, "max": 99999, "default": 61206, "step": 1, "fmt": "%d"},
             {"name": "ips1", "label": "IPS semester 1 (rata-rata indeks)", "min": 0.0, "max": 4.2, "default": 3.2, "step": 0.01, "fmt": "%.2f"},
             {"name": "n_mk_s1", "label": "Jumlah mata kuliah semester 1", "min": 1, "max": 20, "default": 8, "step": 1, "fmt": "%d"},
             {"name": "n_CDE_s1", "label": "Jumlah nilai C/D/E semester 1", "min": 0, "max": 15, "default": 0, "step": 1, "fmt": "%d"},
             {"name": "angka_mean_s1", "label": "Rerata nilai angka semester 1", "min": 0.0, "max": 110.0, "default": 75.0, "step": 0.5, "fmt": "%.2f"},
         ]
-    if key == "umbjm_v2_year1":
-        return input_specs("umbjm_v2_sem1") + [
+    if key == "umbjm_v3_year1":
+        return input_specs("umbjm_v3_sem1") + [
             {"name": "ips12", "label": "IPS kumulatif semester 1–2", "min": 0.0, "max": 4.2, "default": 3.4, "step": 0.01, "fmt": "%.2f"},
             {"name": "n_mk_s12", "label": "Jumlah mata kuliah semester 1–2", "min": 1, "max": 40, "default": 17, "step": 1, "fmt": "%d"},
             {"name": "n_CDE_s12", "label": "Jumlah nilai C/D/E semester 1–2", "min": 0, "max": 25, "default": 0, "step": 1, "fmt": "%d"},
@@ -291,33 +290,19 @@ def presets(key: str) -> Dict[str, Dict[str, Any]]:
     - umbjm_v2 rows are read live from umbjm_v2_canonical.csv at call time.
     - uci row comes from the verified SHAP case study (shap_uci_REAL.json).
     """
-    if key.startswith("umbjm_v2"):
-        import json as _json, sys as _sys
-        base = "/Users/rudy/Disertasi/Semester 3/UAS Monev/Paper 3/Riset/LLMXAI/IETA/Riset/reanalysis/umbjm_v2_canonical.csv"
-        FE6 = ["kode_prodi", "jenis_daftar_code", "ips1", "n_mk_s1", "n_CDE_s1", "angka_mean_s1"]
-        df = pd.read_csv(base)
-        import joblib as jb
-        sc = jb.load(os.path.join(ARTIFACT_DIR, "scaler_umbjm_v2_sem1.joblib"))
-        m = jb.load(os.path.join(ARTIFACT_DIR, "model_umbjm_v2_sem1.joblib"))
-        dfx = df.copy()
-        dfx["_p"] = m.predict_proba(sc.transform(dfx[FE6].astype(float).values))[:, 1]
-        i_risk = dfx["_p"].idxmax()
-        i_safe = dfx["_p"].idxmin()
-        risk_row = dfx.loc[i_risk, FE6].to_dict()
-        safe_row = dfx.loc[i_safe, FE6].to_dict()
-        out = {
-            f"Contoh sangat berisiko (baris nyata, p={dfx['_p'].max():.3f})": risk_row,
-            f"Contoh aman (baris nyata, p={dfx['_p'].min():.3f})": safe_row,
+    if key.startswith("umbjm_v3"):
+        import json as _json
+        rp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "real_preset_rows_v3.json")
+        d = _json.load(open(rp))
+        FE6 = ["kode_prodi", "ips1", "n_mk_s1", "n_CDE_s1", "angka_mean_s1"]
+        def slice_row(row):
+            if key == "umbjm_v3_sem1":
+                return {f: row[f] for f in FE6}
+            return dict(row)
+        return {
+            "Contoh sangat berisiko (baris nyata, p≈0.999)": slice_row(d["risk"]),
+            "Contoh aman (baris nyata, p≈0.002)": slice_row(d["safe"]),
         }
-        if key == "umbjm_v2_year1":
-            extra = ["ips12", "n_mk_s12", "n_CDE_s12"]
-            out[f"Contoh sangat berisiko (baris nyata, p={dfx['_p'].max():.3f})"].update(
-                dfx.loc[i_risk, extra].to_dict()
-            )
-            out[f"Contoh aman (baris nyata, p={dfx['_p'].min():.3f})"].update(
-                dfx.loc[i_safe, extra].to_dict()
-            )
-        return out
     # UCI presets unchanged (verified SHAP case)
     return {
         # Exact row idx=3042 of quin/uci.csv (Target=0, dropout) — verified.
