@@ -158,7 +158,7 @@ st.markdown(
     <p>Deteksi dini risiko gagal lulus — dibaca murni dari data semester pertama,
     tanpa melirik semester berikut. Alat bantu keputusan, bukan hakim akhir.</p>
   </div>
-  <div class="uj-badge">model terverifikasi · v1.0</div>
+  <div class="uj-badge">model terverifikasi · v1.1</div>
 </div>
 """,
     unsafe_allow_html=True,
