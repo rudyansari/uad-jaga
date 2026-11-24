@@ -168,7 +168,7 @@ st.markdown(
 if "result" not in st.session_state:
     st.session_state.result = None
 if "dataset_key" not in st.session_state:
-    st.session_state.dataset_key = "umbjm"
+    st.session_state.dataset_key = "umbjm_v2_year1"
 
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
@@ -177,7 +177,8 @@ with st.sidebar:
         "Konteks data",
         options=list(DATASETS.keys()),
         format_func=lambda k: DATASETS[k]["label"],
-        index=0 if st.session_state.dataset_key == "umbjm" else 1,
+        index=list(DATASETS.keys()).index(st.session_state.dataset_key)
+        if st.session_state.dataset_key in DATASETS else 0,
     )
     if dataset_label != st.session_state.dataset_key:
         st.session_state.dataset_key = dataset_label
@@ -190,12 +191,13 @@ with st.sidebar:
         st.stop()
 
     spec = tm.spec
+    pos_lbl = int(spec.get("pos_label", 0))
     st.markdown(
         f"""<div class="uj-card">
 <h4>Kartu model</h4>
 <span class="uj-muted">{DATASETS[dataset_label]['desc']}<br>
 {spec['n_rows']:,} mahasiswa · {len(spec['features'])} fitur · {spec['at_risk_rate']*100:.1f}% at-risk<br>
-label <b>0</b> = at-risk · label <b>1</b> = selesai</span></div>""",
+label <b>{pos_lbl}</b> = at-risk · label <b>{1-pos_lbl}</b> = selesai-tepat-waktu</span></div>""",
         unsafe_allow_html=True,
     )
 
@@ -285,8 +287,9 @@ tab_in, tab_view, tab_shap, tab_rec, tab_metrics, tab_about = st.tabs(
 with tab_in:
     st.markdown("## Isi data mahasiswa")
     st.markdown(
-        """<span class="uj-muted">Cukup data semester pertama. Model <b>sengaja</b> tidak membaca
-IPS semester dua — di kolom itulah angka sempurna AUC 1,000 sebenarnya mencuri pandang.</span>""",
+        """<span class="uj-muted">Cukup data semester pertama (atau kumulatif tahun pertama).
+Model <b>sengaja</b> tidak membaca hasil akhir studi maupun semester-semester lanjut —
+sinyal dinilai jujur apa adanya, sebagaimana diuji pada audit protokol P1–P5.</span>""",
         unsafe_allow_html=True,
     )
     st.write("")
@@ -437,38 +440,35 @@ dibaca langsung dari file artefaknya, bukan ketik tangan, bukan perkiraan.</span
     )
     st.write("")
     vm = verified_metrics()
-    if "leakage_audit_REAL.csv" in vm["files"]:
-        st.markdown("#### Audit bocor data (measurement-forward leakage)")
-        st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_REAL.csv"]), width="stretch", hide_index=True)
-        st.caption(
-            "FULL = semua fitur (termasuk semester 2, hanya untuk audit). EARLY = fitur semester 1 saja — yang dipakai aplikasi ini."
-        )
-    if "cv_benchmark_REAL.json" in vm["files"]:
-        st.markdown("#### Benchmark model (5-fold CV, pooled out-of-fold)")
+    if "leakage_audit_v2_REAL.csv" in vm["files"]:
+        st.markdown("#### Audit fidelity (UMBJM 2026, XGBoost 5-fold pooled OOF)")
+        st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_v2_REAL.csv"]), width="stretch", hide_index=True)
+    if "cv_benchmark_v2_REAL.json" in vm["files"]:
+        st.markdown("#### Benchmark model (UMBJM 2026, positive class = tidak-lulus-tepat-waktu)")
         rows = []
-        b = vm["files"]["cv_benchmark_REAL.json"]
-        for dn in b:
-            for gname in b[dn]:
-                if "Sem1" not in gname:
-                    continue
-                for mname, mv in b[dn][gname]["models"].items():
-                    p = mv["pooled"]
-                    fs = mv["fold_mean_std"]
-                    rows.append({
-                        "dataset": dn,
-                        "model": mname,
-                        "AUC": round(p["auc"], 3),
-                        "fold AUC (mean±std)": f"{fs['auc'][0]:.3f}±{fs['auc'][1]:.3f}",
-                        "P": round(p["precision"], 3),
-                        "R": round(p["recall"], 3),
-                        "F1": round(p["f1"], 3),
-                        "Acc": round(p["accuracy"], 3),
-                        "P@100": round(mv["precision_at_100"], 2),
-                    })
+        b2 = vm["files"]["cv_benchmark_v2_REAL.json"]
+        for gname in b2:
+            for mname, mv in b2[gname]["models"].items():
+                p = mv["pooled"]; fs = mv["fold_mean_std"]
+                rows.append({
+                    "grup fitur": gname, "model": mname,
+                    "AUC": round(p["auc"], 3),
+                    "fold AUC (mean±std)": f"{fs['auc'][0]:.3f}±{fs['auc'][1]:.3f}",
+                    "P": round(p["precision"], 3), "R": round(p["recall"], 3),
+                    "F1": round(p["f1"], 3), "Acc": round(p["accuracy"], 3),
+                    "P@100": round(mv["precision_at_100"], 2),
+                })
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
-    if "calibration_REAL.json" in vm["files"]:
-        st.markdown("#### Kalibrasi (holdout 15%)")
-        st.dataframe(pd.DataFrame(vm["files"]["calibration_REAL.json"]).T.round(4), width="stretch")
+    if "temporal_validation_v2_REAL.csv" in vm["files"]:
+        st.markdown("#### Validasi temporal antar-angkatan (train ≤ k−1 → test k)")
+        st.dataframe(pd.DataFrame(vm["files"]["temporal_validation_v2_REAL.csv"]), width="stretch", hide_index=True)
+        st.caption("Kohort 2024 dibatasi kematangan kelas (rate 65%) — angka itu struktur label, bukan kegagalan model.")
+    if "calibration_v2_REAL.json" in vm["files"]:
+        st.markdown("#### Kalibrasi (cohort holdout 2023, fitur tahun-1)")
+        st.dataframe(pd.DataFrame(vm["files"]["calibration_v2_REAL.json"], index=["nilai"]).T.round(4), width="stretch")
+    if "leakage_audit_REAL.csv" in vm["files"]:
+        st.markdown("#### Audit benchmark publik UCI (semester-2 content vs semester-1-only)")
+        st.dataframe(pd.DataFrame(vm["files"]["leakage_audit_REAL.csv"]), width="stretch", hide_index=True)
     if "human_eval_descriptive_REAL.csv" in vm["files"]:
         st.markdown("#### Penilaian manusia (48 penasihat, 2.160 penilaian)")
         st.dataframe(pd.DataFrame(vm["files"]["human_eval_descriptive_REAL.csv"]), width="stretch", hide_index=True)

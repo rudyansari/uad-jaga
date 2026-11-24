@@ -45,10 +45,15 @@ def _load_json(path: str) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------- datasets
 DATASETS = {
-    "umbjm": {
-        "label": "UMBJM — Universitas Muhammadiyah Banjarmasin (Indonesia)",
-        "desc": "Semester-1 early-warning model, internal cohort.",
-        "bands": (0.30, 0.70),  # LOW < 0.30 <= MEDIUM < 0.70 <= HIGH (operational)
+    "umbjm_v2_sem1": {
+        "label": "UMBJM (2026) — semester pertama saja",
+        "desc": "Risiko tidak-lulus-tepat-waktu (DO akad./lambat). Akurasi lebih sopan, sinyal lebih jujur.",
+        "bands": (0.30, 0.70),
+    },
+    "umbjm_v2_year1": {
+        "label": "UMBJM (2026) — tahun pertama (2 semester)",
+        "desc": "Risiko tidak-lulus-tepat-waktu (DO akad./lambat). Lebih kuat, masih termasuk early.",
+        "bands": (0.30, 0.70),
     },
     "uci": {
         "label": "UCI — Public benchmark (Portugal; 'Enrolled' class excluded)",
@@ -84,9 +89,11 @@ def load_artifacts(key: str) -> TrainedModel:
 
 
 def verified_metrics() -> Dict[str, Any]:
-    """Aggregated verified metrics shown verbatim in the UI's 'About' tab."""
+    """Aggregated verified metrics shown verbatim in the UI's 'Angka & bukti' tab."""
     out = {"files": {}}
     for fname in [
+        "leakage_audit_v2_REAL.csv",
+        "temporal_validation_v2_REAL.csv",
         "leakage_audit_REAL.csv",
         "metrics_summary_REAL.csv",
         "human_eval_descriptive_REAL.csv",
@@ -95,7 +102,7 @@ def verified_metrics() -> Dict[str, Any]:
         p = _rp(fname)
         if os.path.exists(p):
             out["files"][fname] = pd.read_csv(p).to_dict("records")
-    for jname in ["cv_benchmark_REAL.json", "calibration_REAL.json"]:
+    for jname in ["cv_benchmark_v2_REAL.json", "calibration_v2_REAL.json", "cv_benchmark_REAL.json", "calibration_REAL.json"]:
         p = _rp(jname)
         if os.path.exists(p):
             out["files"][jname] = _load_json(p)
@@ -106,19 +113,20 @@ def verified_metrics() -> Dict[str, Any]:
 def predict(tm: TrainedModel, row: Dict[str, float]) -> Dict[str, Any]:
     """
     row: feature_name -> raw numeric value (all required keys present).
-    Returns risk probability for class 0 ('at_risk'), tier, and proba dict.
+    risk = P(class = pos_label)  ('at_risk'); spec['pos_label'] = 0 | 1
     """
     vec = np.array([[float(row[f]) for f in tm.features]], dtype=float)
     xs = tm.scaler.transform(vec)
     proba = tm.model.predict_proba(xs)[0]
-    risk = float(proba[0])
+    pos = int(tm.spec.get("pos_label", 0))
+    risk = float(proba[pos])
     bands = DATASETS[tm.key]["bands"]
     tier = "HIGH" if risk >= bands[1] else ("MEDIUM" if risk >= bands[0] else "LOW")
     return {
         "risk": risk,
-        "p_safe": float(proba[1]),
+        "p_safe": float(proba[1 - pos]),
         "tier": tier,
-        "thresholds_used": {"tier_bands": bands},
+        "thresholds_used": {"tier_bands": bands, "pos_label": pos},
         "features_used": len(tm.features),
     }
 
@@ -132,16 +140,20 @@ def exact_shap_contributions(
 ) -> Dict[str, Any]:
     """
     Tree SHAP exact contributions via xgboost pred_contribs.
-    Negated to the at-risk (class 0) logit orientation, same as the
-    verified protocol in Riset/reanalysis (assert-reconstruction).
+    Oriented to the at-risk logit according to tm.spec['pos_label']:
+    pos_label 0 → negate (recomputed vs proba[0]); pos_label 1 → as-is (vs proba[1]).
     """
     vec = np.array([[float(row[f]) for f in tm.features]], dtype=float)
     xs = tm.scaler.transform(vec)
     booster = tm.model.get_booster()
     dm = xgb.DMatrix(xs, feature_names=list(tm.features))
     contrib = booster.predict(dm, pred_contribs=True)[0]
-    sv, base = -contrib[:-1], -float(contrib[-1])
-    model_atrisk = float(tm.model.predict_proba(xs)[0, 0])
+    pos = int(tm.spec.get("pos_label", 0))
+    if pos == 0:
+        sv, base = -contrib[:-1], -float(contrib[-1])
+    else:
+        sv, base = contrib[:-1], float(contrib[-1])
+    model_atrisk = float(tm.model.predict_proba(xs)[0, pos])
     recon = float(_sigmoid(np.array([base + sv.sum()]))[0])
     if abs(recon - model_atrisk) > 2e-3:
         raise RuntimeError(f"SHAP reconstruction mismatch: {recon} vs {model_atrisk}")
@@ -171,42 +183,51 @@ def recommendations(tm: TrainedModel, row: Dict[str, float], drivers: List[Dict[
     """
     pos = {d["feature"]: d for d in drivers if d["contribution"] > 0}
     recs: List[str] = []
-    if tm.key == "umbjm":
-        gpa_features = [f for f in pos if "IPK" in f or "IPS" in f]
-        sks_features = [f for f in pos if "sks" in f.lower()]
-        if gpa_features:
-            f = gpa_features[0]
+    if tm.key.startswith("umbjm_v2"):
+        if not pos:
+            return ["Profil tidak menunjukkan pendorong risiko dominan: pantau rutin setiap selesai nilai semester 1 keluar."]
+        if "ips1" in pos:
             recs.append(
-                f"GPA semester 1 (IPK {row[f]:.2f}) adalah driver risiko utama: jadwalkan tutorial terstruktur "
-                f"untuk mata kuliah dengan skor di bawah C dalam 6 minggu pertama."
+                f"Indeks kualitas semester 1 (rata-rata indeks {row['ips1']:.2f}) adalah pendorong risiko terkuat: "
+                "jadwalkan klinik nilai untuk mata kuliah terendah dalam 4 minggu pertama (bukan tunggu tengah semester)."
             )
-        if sks_features:
+        if "n_CDE_s1" in pos and row.get("n_CDE_s1", 0) > 0:
             recs.append(
-                "Beban SKS semester 1 ikut menaikkan risiko: batasi beban semester berikutnya maksimal 18–20 SKS "
-                "hingga IPK <2.50 teratasi."
+                f"Sudah ada {int(row['n_CDE_s1'])} nilai C/D/E di semester 1: fokuskan 2 mata kuliah terbawah saja, "
+                "bukan menambah beban remedial di semua pelajaran sekaligus."
             )
-        if pos:
-            recs.insert(
-                0,
-                "Tindak lanjuti minggu ini: pemetaan penyebab non-akademik (finansial/pekerjaan/transportasi) "
-                "sebelum memilih bentuk dukungan."
+        if "angka_mean_s1" in pos:
+            recs.append(
+                "Rerata angka semester 1 ikut menarik risiko: pasangkan tutor mayor pada 4 minggu pertama, "
+                "lalu ukur ulang via aplikasi setelah nilai akhir semester 1."
             )
-        recs.append(
-            "Pantau ulang via aplikasi setelah nilai semester 1 final; model ini hanya berbasis fitur semester 1."
+        if "n_mk_s1" in pos and row.get("n_mk_s1", 0) >= 10 and tm.key == "umbjm_v2_sem1":
+            recs.append(
+                "Beban mata kuliah semester 1 tinggi dibanding risikonya: pertimbangkan menahan beban alih bassist "
+                "semester 2 dengan kualitas dulu, contoh 15–18 SKS bukan 20+."
+            )
+        recs.insert(
+            0,
+            "Konfirmasi penyebab non-akademik (keuangan, pekerjaan, transportasi) dulu bersama mahasiswa ini, "
+            "sebelum memutuskan bentuk dukungan."
         )
-    else:
-        if any("approved" in f for f in pos):
-            recs.append(
-                "Mata kuliah semester 1 yang lolos (approved) adalah driver risiko terkuat: pasangkan tutor mata kuliah "
-                "pada 4 minggu pertama, target menambah approved units."
-            )
-        if "Tuition fees up to date" in pos or "Debtor" in pos:
-            recs.append(
-                "Status keuangan membebani prediksi: aktifkan konsultasi beasiswa/skim pembayaran sebelum penilaian "
-                "risiko berikutnya."
-            )
-        if pos:
-            recs.append("Buat rencana belajar tertulis untuk minggu-minggu terakhir (menjelang ujian semester 1).")
+        recs.append(
+            "Rekomendasi berbasis driver SHAP termeta; bandingkan selalu dengan penilaian penasihat akademik."
+        )
+        return recs
+    # UCI
+    if any("approved" in f for f in pos):
+        recs.append(
+            "Mata kuliah semester 1 yang lolos (approved) adalah driver risiko terkuat: pasangkan tutor mata kuliah "
+            "pada 4 minggu pertama, target menambah approved units."
+        )
+    if "Tuition fees up to date" in pos or "Debtor" in pos:
+        recs.append(
+            "Status keuangan membebani prediksi: aktifkan konsultasi beasiswa/skim pembayaran sebelum penilaian "
+            "risiko berikutnya."
+        )
+    if pos:
+        recs.append("Buat rencana belajar tertulis untuk minggu-minggu terakhir (menjelang ujian semester 1).")
     if not recs:
         recs.append("Profil tidak menunjukkan driver risiko dominan: pantau rutin tiap bulan perkuliahan.")
     return recs
@@ -215,16 +236,20 @@ def recommendations(tm: TrainedModel, row: Dict[str, float], drivers: List[Dict[
 # ---------------------------------------------------------------- input schema
 def input_specs(key: str) -> List[Dict[str, Any]]:
     """UI field schema per dataset (labels in Indonesian, ranges validated)."""
-    if key == "umbjm":
+    if key == "umbjm_v2_sem1":
         return [
-            {"name": "Program Studi", "label": "Program studi (kode)", "min": 1, "max": 40, "default": 20, "step": 1, "fmt": "%d"},
-            {"name": "Jalur Masuk", "label": "Jalur masuk (kode)", "min": 1, "max": 20, "default": 8, "step": 1, "fmt": "%d"},
-            {"name": "Asal Sekolah", "label": "Asal sekolah (kode)", "min": 1, "max": 300, "default": 184, "step": 1, "fmt": "%d"},
-            {"name": "Tahun_PMB", "label": "Tahun penerimaan (kode PMB)", "min": 0, "max": 10, "default": 6, "step": 1, "fmt": "%d"},
-            {"name": "IPS Semester 1", "label": "IPS semester 1", "min": 0.0, "max": 4.0, "default": 3.2, "step": 0.01, "fmt": "%.2f"},
-            {"name": "Jumlah sks Semester Semester 1", "label": "SKS diambil semester 1", "min": 0, "max": 24, "default": 19, "step": 1, "fmt": "%d"},
-            {"name": "IPK Semester 1", "label": "IPK semester 1", "min": 0.0, "max": 4.0, "default": 3.2, "step": 0.01, "fmt": "%.2f"},
-            {"name": "Jumlah sks Total Semester 1", "label": "Total SKS semester 1", "min": 0, "max": 24, "default": 19, "step": 1, "fmt": "%d"},
+            {"name": "kode_prodi", "label": "Program studi (kode; mis. 48401)", "min": 10000, "max": 99999, "default": 48401, "step": 1, "fmt": "%d"},
+            {"name": "jenis_daftar_code", "label": "Jalur daftar (0=Reguler, 1=RPL, 2=Pindahan)", "min": 0, "max": 2, "default": 0, "step": 1, "fmt": "%d"},
+            {"name": "ips1", "label": "IPS semester 1 (rata-rata indeks)", "min": 0.0, "max": 4.2, "default": 3.2, "step": 0.01, "fmt": "%.2f"},
+            {"name": "n_mk_s1", "label": "Jumlah mata kuliah semester 1", "min": 1, "max": 20, "default": 8, "step": 1, "fmt": "%d"},
+            {"name": "n_CDE_s1", "label": "Jumlah nilai C/D/E semester 1", "min": 0, "max": 15, "default": 0, "step": 1, "fmt": "%d"},
+            {"name": "angka_mean_s1", "label": "Rerata nilai angka semester 1", "min": 0.0, "max": 110.0, "default": 75.0, "step": 0.5, "fmt": "%.2f"},
+        ]
+    if key == "umbjm_v2_year1":
+        return input_specs("umbjm_v2_sem1") + [
+            {"name": "ips12", "label": "IPS kumulatif semester 1–2", "min": 0.0, "max": 4.2, "default": 3.4, "step": 0.01, "fmt": "%.2f"},
+            {"name": "n_mk_s12", "label": "Jumlah mata kuliah semester 1–2", "min": 1, "max": 40, "default": 17, "step": 1, "fmt": "%d"},
+            {"name": "n_CDE_s12", "label": "Jumlah nilai C/D/E semester 1–2", "min": 0, "max": 25, "default": 0, "step": 1, "fmt": "%d"},
         ]
     return [
         {"name": "Marital status", "label": "Status perkawinan (kode)", "min": 1, "max": 6, "default": 1, "step": 1, "fmt": "%d"},
@@ -262,24 +287,38 @@ def input_specs(key: str) -> List[Dict[str, Any]]:
 
 def presets(key: str) -> Dict[str, Dict[str, Any]]:
     """
-    Two real examples drawn from the verified SHAP case studies
-    (see shap_umbjm_REAL.json / shap_uci_REAL.json) + one low-risk example
-    taken from actual data rows (median-safe). Only real values are used.
+    Real examples drawn from actual dataset rows (verified outcomes):
+    - umbjm_v2 rows are read live from umbjm_v2_canonical.csv at call time.
+    - uci row comes from the verified SHAP case study (shap_uci_REAL.json).
     """
-    if key == "umbjm":
-        return {
-            # Exact row idx=1117 of quin/umbjm.csv (Target=0, at-risk) — verified.
-            "Contoh: sangat berisiko (data nyata idx=1117)": {
-                "Program Studi": 7, "Jalur Masuk": 15, "Asal Sekolah": 184, "Tahun_PMB": 2,
-                "IPS Semester 1": 1.14, "Jumlah sks Semester Semester 1": 19,
-                "IPK Semester 1": 1.14, "Jumlah sks Total Semester 1": 19,
-            },
-            "Contoh: aman (profil lulusan)": {
-                "Program Studi": 20, "Jalur Masuk": 8, "Asal Sekolah": 184, "Tahun_PMB": 5,
-                "IPS Semester 1": 3.5, "Jumlah sks Semester Semester 1": 20,
-                "IPK Semester 1": 3.5, "Jumlah sks Total Semester 1": 20,
-            },
+    if key.startswith("umbjm_v2"):
+        import json as _json, sys as _sys
+        base = "/Users/rudy/Disertasi/Semester 3/UAS Monev/Paper 3/Riset/LLMXAI/IETA/Riset/reanalysis/umbjm_v2_canonical.csv"
+        FE6 = ["kode_prodi", "jenis_daftar_code", "ips1", "n_mk_s1", "n_CDE_s1", "angka_mean_s1"]
+        df = pd.read_csv(base)
+        import joblib as jb
+        sc = jb.load(os.path.join(ARTIFACT_DIR, "scaler_umbjm_v2_sem1.joblib"))
+        m = jb.load(os.path.join(ARTIFACT_DIR, "model_umbjm_v2_sem1.joblib"))
+        dfx = df.copy()
+        dfx["_p"] = m.predict_proba(sc.transform(dfx[FE6].astype(float).values))[:, 1]
+        i_risk = dfx["_p"].idxmax()
+        i_safe = dfx["_p"].idxmin()
+        risk_row = dfx.loc[i_risk, FE6].to_dict()
+        safe_row = dfx.loc[i_safe, FE6].to_dict()
+        out = {
+            f"Contoh sangat berisiko (baris nyata, p={dfx['_p'].max():.3f})": risk_row,
+            f"Contoh aman (baris nyata, p={dfx['_p'].min():.3f})": safe_row,
         }
+        if key == "umbjm_v2_year1":
+            extra = ["ips12", "n_mk_s12", "n_CDE_s12"]
+            out[f"Contoh sangat berisiko (baris nyata, p={dfx['_p'].max():.3f})"].update(
+                dfx.loc[i_risk, extra].to_dict()
+            )
+            out[f"Contoh aman (baris nyata, p={dfx['_p'].min():.3f})"].update(
+                dfx.loc[i_safe, extra].to_dict()
+            )
+        return out
+    # UCI presets unchanged (verified SHAP case)
     return {
         # Exact row idx=3042 of quin/uci.csv (Target=0, dropout) — verified.
         "Contoh: sangat berisiko (data nyata idx=3042)": {
